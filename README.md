@@ -1,6 +1,6 @@
-# Ayorinde_Ashogbon_BasicNetworkSniffer
+# BasicNetworkSniffer
 
-Task 1 of the CodeAlpha Cyber Security Internship, by Ayorinde Ashogbon: a basic network sniffer in Python using `scapy`.
+CodeAlpha Cyber Security, by Ayorinde Ashogbon: a basic network sniffer in Python using `scapy`.
 
 ## Features
 - Live packet capture (TCP, UDP, ICMP, ARP, IPv4/IPv6)
