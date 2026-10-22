@@ -1,0 +1,259 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Basic Network Sniffer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: single narrow reading column, a nested-layer packet diagram as the one visual moment, code blocks as the working surface. */
+:root {
+  --bg: #f3f6f8;
+  --surface: #ffffff;
+  --fg: #13202a;
+  --muted: #55676f;
+  --line: #d3dde2;
+  --accent: #0b7a75;
+  --accent-soft: #dcf1ef;
+  --code-bg: #101b22;
+  --code-fg: #d8e7ec;
+  --code-muted: #7e98a3;
+  --warn-bg: #fdf1dd;
+  --warn-line: #e3c088;
+  --warn-fg: #5c3d08;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1317;
+    --surface: #131d23;
+    --fg: #dbe7ec;
+    --muted: #8da2ac;
+    --line: #26353d;
+    --accent: #4fd1c5;
+    --accent-soft: #123532;
+    --code-bg: #0a1013;
+    --code-fg: #d8e7ec;
+    --code-muted: #6f8995;
+    --warn-bg: #2b2210;
+    --warn-line: #6b5527;
+    --warn-fg: #f0d9a8;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1317;
+  --surface: #131d23;
+  --fg: #dbe7ec;
+  --muted: #8da2ac;
+  --line: #26353d;
+  --accent: #4fd1c5;
+  --accent-soft: #123532;
+  --code-bg: #0a1013;
+  --code-fg: #d8e7ec;
+  --code-muted: #6f8995;
+  --warn-bg: #2b2210;
+  --warn-line: #6b5527;
+  --warn-fg: #f0d9a8;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+section { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+.tag {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 600;
+}
+h1 {
+  font-family: var(--font-mono);
+  font-size: clamp(24px, 6vw, 34px);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+h2 {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  text-wrap: balance;
+}
+p { max-width: 65ch; }
+.lede { font-size: 18px; color: var(--muted); }
+header { display: flex; flex-direction: column; gap: 12px; }
+code.inline {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--accent-soft);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+a { color: var(--accent); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.features { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.features li {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px 14px;
+  min-width: 0;
+}
+.features strong { display: block; font-family: var(--font-mono); font-size: 13px; color: var(--accent); margin-bottom: 2px; }
+
+.codeblock { position: relative; background: var(--code-bg); border-radius: 6px; min-width: 0; }
+.codeblock pre {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--code-fg);
+  padding: 14px 70px 14px 16px;
+  overflow-x: auto;
+  white-space: pre;
+}
+.codeblock .c { color: var(--code-muted); }
+.copy {
+  position: absolute; top: 8px; right: 8px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em;
+  background: transparent; color: var(--code-fg);
+  border: 1px solid var(--code-muted); border-radius: 4px;
+  padding: 3px 8px; cursor: pointer;
+}
+.copy:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Packet diagram: nested boxes show encapsulation */
+.stack { display: flex; flex-direction: column; gap: 6px; }
+.layer {
+  border: 1.5px solid var(--accent);
+  border-radius: 6px;
+  padding: 10px 12px 12px;
+  background: var(--surface);
+  display: flex; flex-direction: column; gap: 8px;
+  min-width: 0;
+}
+.layer .name { font-family: var(--font-mono); font-size: 13px; font-weight: 600; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+.layer .name small { font-weight: 400; color: var(--muted); font-size: 12px; }
+.layer.payload { border-style: dashed; background: var(--accent-soft); }
+.diagram-note { font-size: 14px; color: var(--muted); }
+
+.notice {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  color: var(--warn-fg);
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+.notice strong { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; display: block; margin-bottom: 2px; }
+</style>
+
+<main>
+  <header>
+    <span class="tag">CodeAlpha Cyber Security Internship, Task 1, by Ayorinde Ashogbon</span>
+    <h1>Ayorinde_Ashogbon_BasicNetworkSniffer</h1>
+    <p class="lede">A basic network sniffer in Python using <code class="inline">scapy</code>. It captures live packets and prints who is talking to whom, over which protocol.</p>
+  </header>
+
+  <section>
+    <h2>Features</h2>
+    <ul class="features">
+      <li><strong>Live capture</strong>TCP, UDP, ICMP, ARP over IPv4 and IPv6</li>
+      <li><strong>Packet details</strong>Source and destination IPs, protocol, ports, TCP flags, length</li>
+      <li><strong>Extras</strong>Optional payload preview and DNS query names</li>
+      <li><strong>Control</strong>BPF filters, packet count limit, save to <code class="inline">.pcap</code> (open in Wireshark)</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Setup</h2>
+    <div class="codeblock">
+      <pre><code>pip install scapy</code></pre>
+      <button class="copy" type="button" id="copy-setup">Copy</button>
+    </div>
+    <p>Windows also needs <a href="https://npcap.com" target="_blank" rel="noopener">Npcap</a>. Run with admin or root privileges.</p>
+  </section>
+
+  <section>
+    <h2>Usage</h2>
+    <div class="codeblock">
+      <pre><code>sudo python3 sniffer.py                      <span class="c"># sniff everything</span>
+sudo python3 sniffer.py -i eth0 -c 50        <span class="c"># 50 packets on eth0</span>
+sudo python3 sniffer.py -f "tcp port 80" --payload
+sudo python3 sniffer.py -o capture.pcap</code></pre>
+      <button class="copy" type="button" id="copy-usage">Copy</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>How it works</h2>
+    <p><code class="inline">scapy.sniff()</code> reads raw frames from the interface. Each frame is layered, and the program inspects each layer with <code class="inline">haslayer()</code>, extracts fields, and prints a summary. Seeing the layers separately shows how data is encapsulated as it moves through the network.</p>
+    <div class="stack" role="img" aria-label="Nested packet layers: Ethernet frame contains IP, which contains TCP, UDP or ICMP, which contains the payload">
+      <div class="layer">
+        <div class="name">Ethernet <small>the frame read from the interface</small></div>
+        <div class="layer">
+          <div class="name">IP <small>source and destination addresses, protocol number</small></div>
+          <div class="layer">
+            <div class="name">TCP / UDP / ICMP <small>ports, TCP flags, ICMP type and code</small></div>
+            <div class="layer payload">
+              <div class="name">Payload <small>shown as a printable preview with --payload</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="diagram-note">Each box wraps the next, the same way a packet wraps its data on the wire.</p>
+  </section>
+
+  <section>
+    <h2>Ethical use</h2>
+    <div class="notice">
+      <strong>Permission first</strong>
+      Capture only on networks you own or have written permission to monitor.
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  function wire(btnId) {
+    var btn = document.getElementById(btnId);
+    if (!btn) return;
+    var code = btn.parentNode.querySelector("code");
+    btn.addEventListener("click", function () {
+      var text = code.innerText;
+      function done(label) {
+        btn.textContent = label;
+        setTimeout(function () { btn.textContent = "Copy"; }, 1600);
+      }
+      function fallback() {
+        var range = document.createRange();
+        range.selectNodeContents(code);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        done("Selected");
+      }
+      try {
+        navigator.clipboard.writeText(text).then(function () { done("Copied"); }, fallback);
+      } catch (e) { fallback(); }
+    });
+  }
+  wire("copy-setup");
+  wire("copy-usage");
+})();
+</script>
+
+</body></html>
